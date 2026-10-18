@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return signedIn() && request.auth.token.role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isEditor() {
+      return hasRole('editor');
+    }
+
+    function canReadDraft(data) {
+      return isAdmin() || (isEditor() && data.status == 'draft');
+    }
+
+    function canReadPublished(data) {
+      return data.status == 'published' && data.isVisible == true;
+    }
+
+    function canCreateDraft(data) {
+      return isAdmin() || (isEditor() && data.status == 'draft');
+    }
+
+    function canUpdateDraft() {
+      return isAdmin() || (
+        isEditor() &&
+        resource.data.status == 'draft' &&
+        request.resource.data.status == 'draft'
+      );
+    }
+
+    match /modules/{moduleId} {
+      allow get, list: if canReadDraft(resource.data) || canReadPublished(resource.data);
+      allow create: if canCreateDraft(request.resource.data);
+      allow update: if canUpdateDraft();
+      allow delete: if isAdmin();
+
+      match /submodules/{submoduleId} {
+        allow get, list: if canReadDraft(resource.data) || (
+          canReadPublished(resource.data) &&
+          get(/databases/$(database)/documents/modules/$(moduleId)).data.status == 'published' &&
+          get(/databases/$(database)/documents/modules/$(moduleId)).data.isVisible == true
+        );
+        allow create: if canCreateDraft(request.resource.data);
+        allow update: if canUpdateDraft();
+        allow delete: if isAdmin();
+
+        match /components/{componentId} {
+          allow get, list: if canReadDraft(resource.data) || (
+            canReadPublished(resource.data) &&
+            get(/databases/$(database)/documents/modules/$(moduleId)).data.status == 'published' &&
+            get(/databases/$(database)/documents/modules/$(moduleId)).data.isVisible == true &&
+            get(/databases/$(database)/documents/modules/$(moduleId)/submodules/$(submoduleId)).data.status == 'published' &&
+            get(/databases/$(database)/documents/modules/$(moduleId)/submodules/$(submoduleId)).data.isVisible == true
+          );
+          allow create: if canCreateDraft(request.resource.data);
+          allow update: if canUpdateDraft();
+          allow delete: if isAdmin();
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+build/
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+android/.gradle/
+ios/Pods/
+*.log
+.env
+.env.*
+!.env.example

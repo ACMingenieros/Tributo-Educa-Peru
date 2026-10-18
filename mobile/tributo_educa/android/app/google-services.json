@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "368137869256",
+    "project_id": "tributo-educa-peru",
+    "storage_bucket": "tributo-educa-peru.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:368137869256:android:860f50d3810b8c402752fd",
+        "android_client_info": {
+          "package_name": "com.example.tributo_educa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYVPlmCHb7o5FDNHPS9CWfe-5iVwxSVOo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
