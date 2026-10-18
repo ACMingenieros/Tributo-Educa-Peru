@@ -82,8 +82,8 @@ export function AdminConsole() {
       try {
         const token = await getIdTokenResult(nextUser, true);
         const resolvedRole = resolvePanelRole(
+          nextUser.uid,
           nextUser.email,
-          nextUser.emailVerified,
           token.claims.role,
         );
         if (resolvedRole) {
@@ -176,7 +176,7 @@ export function AdminConsole() {
           <p className="eyebrow">ACCESO RESTRINGIDO</p>
           <h1>Tu cuenta no tiene un rol administrativo</h1>
           <p className="muted-copy">
-            Ingresa con el correo administrador verificado o con una cuenta que tenga el claim `role: editor`.
+            Ingresa con la cuenta administradora configurada o con una cuenta editora autorizada.
           </p>
           {authError && <p className="form-error" role="alert">{authError}</p>}
           <button className="button button-secondary button-wide" onClick={() => services && signOut(services.auth)}>

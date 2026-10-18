@@ -19,10 +19,10 @@ El panel Next.js incluye una consola de contenidos preparada para Firebase: mód
 2. Habilita Firebase Authentication con correo y contraseña y crea Firestore.
 3. Copia `admin/.env.example` como `admin/.env.local` y completa los valores de configuración de la app web (no uses claves de cuenta de servicio en el cliente).
 4. Despliega las reglas e índices revisados con `firebase.json` usando Firebase CLI, después de verificar el proyecto destino.
-5. En esta versión, el acceso administrador está limitado al correo verificado `admin@gmail.com`, definido también en `firestore.rules`. Los editores siguen usando el claim `role: "editor"`.
+5. En esta versión, el acceso administrador está limitado al UID de Firebase configurado en el panel y en `firestore.rules`. Los editores siguen usando el claim `role: "editor"`.
 6. Publica las reglas actualizadas de Firestore antes de intentar guardar o publicar contenido. Instala dependencias en `admin/` y ejecuta `npm run dev`.
 
-La configuración del proyecto Firebase y estas reglas aún deben aplicarse en la consola del proyecto. El acceso administrador usa el correo verificado indicado arriba; las cuentas editoras siguen usando custom claims. La vista previa del panel es aproximada y no garantiza paridad exacta con Flutter. Recursos multimedia se agregan mediante URL por ahora; Storage y la carga directa requieren definir límites y formatos.
+La configuración del proyecto Firebase y estas reglas aún deben aplicarse en la consola del proyecto. El administrador inicial se autoriza por UID de Firebase (no por correo); las cuentas editoras siguen usando custom claims. La vista previa del panel es aproximada y no garantiza paridad exacta con Flutter. Recursos multimedia se agregan mediante URL por ahora; Storage y la carga directa requieren definir límites y formatos.
 
 ## Documentación
 
