@@ -227,7 +227,7 @@ Estas funciones no forman parte del alcance inicial salvo aprobación expresa.
 ## 13. Decisiones pendientes
 
 - Definir el contenido exacto del Word.
-- Confirmar roles administrativos finales.
+- El administrador inicial se identifica por correo verificado; los editores usan el claim `role: "editor"`.
 - Confirmar si los exámenes guardarán intentos y calificaciones.
 - Confirmar tamaño y tipos de archivos permitidos.
 - Definir si habrá contenido gratuito y restringido en el futuro.

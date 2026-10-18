@@ -45,6 +45,7 @@ import {
   updateSubmodule,
 } from '../lib/firebase/content-repository';
 import { getFirebaseClient } from '../lib/firebase/client';
+import { resolvePanelRole } from '../lib/auth/access.mjs';
 import {
   contentFields,
   emptyFieldValues,
@@ -80,9 +81,13 @@ export function AdminConsole() {
       setGate('checking-role');
       try {
         const token = await getIdTokenResult(nextUser, true);
-        const claim = token.claims.role;
-        if (claim === 'admin' || claim === 'editor') {
-          setRole(claim);
+        const resolvedRole = resolvePanelRole(
+          nextUser.email,
+          nextUser.emailVerified,
+          token.claims.role,
+        );
+        if (resolvedRole) {
+          setRole(resolvedRole);
           setGate('ready');
         } else {
           setRole(null);
@@ -170,7 +175,9 @@ export function AdminConsole() {
           <BrandMark />
           <p className="eyebrow">ACCESO RESTRINGIDO</p>
           <h1>Tu cuenta no tiene un rol administrativo</h1>
-          <p className="muted-copy">Se requiere el claim `role` con valor `admin` o `editor`.</p>
+          <p className="muted-copy">
+            Ingresa con el correo administrador verificado o con una cuenta que tenga el claim `role: editor`.
+          </p>
           {authError && <p className="form-error" role="alert">{authError}</p>}
           <button className="button button-secondary button-wide" onClick={() => services && signOut(services.auth)}>
             Cerrar sesión

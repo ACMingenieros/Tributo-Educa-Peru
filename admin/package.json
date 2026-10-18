@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "set-admin-role": "node scripts/set-admin-role.mjs"
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@tributo-educa/contracts": "file:../packages/contracts",
@@ -22,7 +22,6 @@
     "@types/react-dom": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
-    "firebase-admin": "^14.5.0",
     "typescript": "latest"
   }
 }
