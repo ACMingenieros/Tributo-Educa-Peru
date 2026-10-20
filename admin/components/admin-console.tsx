@@ -52,6 +52,7 @@ import {
 import { getFirebaseClient } from '../lib/firebase/client';
 import { resolvePanelRole } from '../lib/auth/access.mjs';
 import { confirmAction, showToast } from '../lib/notifications';
+import { MobileLessonPreview, previewDataFromValues } from './content-component-preview';
 import {
   contentFields,
   emptyFieldValues,
@@ -704,6 +705,9 @@ function ContentWorkspace({
       {componentDialog && selectedSubmodule && (
         <ComponentFormDialog
           component={editingComponent}
+          module={selectedModule}
+          submodule={selectedSubmodule}
+          components={components}
           saving={saving}
           onClose={() => { setComponentDialog(false); setEditingComponent(null); }}
           onSave={handleSaveComponent}
@@ -1012,11 +1016,17 @@ function SubmoduleFormDialog({
 
 function ComponentFormDialog({
   component,
+  module,
+  submodule,
+  components,
   saving,
   onClose,
   onSave,
 }: {
   component: ContentComponent | null;
+  module: Module | null;
+  submodule: Submodule;
+  components: ContentComponent[];
   saving: boolean;
   onClose: () => void;
   onSave: (type: ComponentType, title: string, data: Record<string, unknown>) => void;
@@ -1027,6 +1037,17 @@ function ComponentFormDialog({
     component ? fieldValuesFromComponent(component) : emptyFieldValues('rich_text'),
   );
   const [formError, setFormError] = useState('');
+  const previewComponents = [
+    ...components.filter((item) => item.id !== component?.id),
+    {
+      id: component?.id ?? 'live-preview-block',
+      type,
+      title,
+      data: previewDataFromValues(type, values),
+      order: component?.order ?? components.length,
+      isVisible: component?.isVisible ?? true,
+    },
+  ];
 
   function changeType(nextType: ComponentType) {
     setType(nextType);
@@ -1049,32 +1070,38 @@ function ComponentFormDialog({
       <form className="stack-form component-form" onSubmit={submit}>
         <label className="form-field"><span>Tipo de contenido</span><select value={type} onChange={(event) => changeType(event.target.value as ComponentType)}>{Object.entries(componentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <label className="form-field"><span>Título del bloque</span><input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={140} /></label>
-        <div className="component-fields">
-          {contentFields[type].map((field) => (
-            <label className="form-field" key={field.key}>
-              <span>{field.label}{field.required && <b className="required-mark"> *</b>}</span>
-              {field.multiline ? (
-                <textarea
-                  value={values[field.key] ?? ''}
-                  onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
-                  rows={field.format === 'json' ? 7 : 4}
-                  required={field.required}
-                  spellCheck={field.format !== 'json'}
-                />
-              ) : (
-                <input
-                  value={values[field.key] ?? ''}
-                  onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
-                  required={field.required}
-                  type={field.format === 'url' ? 'url' : 'text'}
-                />
-              )}
-              {field.hint && <small>{field.hint}</small>}
-            </label>
-          ))}
+        <div className="component-editor-grid">
+          <div className="component-editor-fields">
+            <div className="component-fields">
+              {contentFields[type].map((field) => (
+                <label className="form-field" key={field.key}>
+                  <span>{field.label}{field.required && <b className="required-mark"> *</b>}</span>
+                  {field.multiline ? (
+                    <textarea
+                      value={values[field.key] ?? ''}
+                      onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                      rows={field.format === 'json' ? 7 : 4}
+                      required={field.required}
+                      spellCheck={field.format !== 'json'}
+                    />
+                  ) : (
+                    <input
+                      value={values[field.key] ?? ''}
+                      onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                      required={field.required}
+                      type={field.format === 'url' ? 'url' : 'text'}
+                    />
+                  )}
+                  {field.hint && <small>{field.hint}</small>}
+                </label>
+              ))}
+            </div>
+            <p className="muted-copy preview-interaction-note">Los controles de examen, simulador y calculadora son demostrativos en esta vista.</p>
+          </div>
+          <MobileLessonPreview module={module} submodule={submodule} components={previewComponents} focusId="live-preview-block" />
         </div>
         {formError && <p className="form-error" role="alert">{formError}</p>}
-        <p className="muted-copy">El contenido se guarda como borrador. La app móvil solo recibe componentes publicados y compatibles.</p>
+        <p className="muted-copy">El contenido se guarda como borrador y se publica desde la lección.</p>
         <div className="dialog-actions"><button type="button" className="button button-secondary" onClick={onClose} disabled={saving}>Cancelar</button><button type="submit" className="button button-primary" disabled={saving} aria-busy={saving}>{saving && <span className="button-spinner" aria-hidden="true" />}{saving ? 'Guardando...' : 'Guardar componente'}</button></div>
       </form>
     </Dialog>
@@ -1094,36 +1121,10 @@ function PreviewDialog({
 }) {
   return (
     <Dialog title="Vista previa del contenido" onClose={onClose} wide>
-      <div className="preview-phone">
-        <div className="preview-topline"><span className="preview-brand">TE</span><span>Tributo Educa Perú</span></div>
-        <div className="preview-notice">ⓘ Contenido educativo. No reemplaza asesoría profesional.</div>
-        <p className="eyebrow">{module?.title}</p>
-        <h2>{submodule.title}</h2>
-        {submodule.description && <p className="muted-copy">{submodule.description}</p>}
-        {components.filter((item) => item.isVisible).sort((a, b) => a.order - b.order).map((item) => (
-          <article className="preview-component" key={item.id}>
-            <span className="component-type">{componentLabels[item.type]}</span>
-            {item.title && <h3>{item.title}</h3>}
-            <PreviewContent component={item} />
-          </article>
-        ))}
-        {components.filter((item) => item.isVisible).length === 0 && <p className="muted-copy">Agrega componentes visibles para ver la previsualización.</p>}
-      </div>
+      <MobileLessonPreview module={module} submodule={submodule} components={components} />
       <div className="dialog-actions"><button className="button button-secondary" onClick={onClose}>Volver al editor</button></div>
     </Dialog>
   );
-}
-
-function PreviewContent({ component }: { component: ContentComponent }) {
-  const values = Object.values(component.data);
-  return <div className="preview-copy">{values.map((value, index) => {
-    if (typeof value === 'string') return <p key={index}>{value}</p>;
-    if (Array.isArray(value)) {
-      return <ul key={index}>{value.map((entry, itemIndex) => <li key={itemIndex}>{typeof entry === 'string' ? entry : JSON.stringify(entry)}</li>)}</ul>;
-    }
-    if (value && typeof value === 'object') return <pre key={index}>{JSON.stringify(value, null, 2)}</pre>;
-    return null;
-  })}</div>;
 }
 
 function Dialog({

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import './admin-overrides.css';
 import './demo.css';
+import './content-preview.css';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import 'toastr/build/toastr.min.css';
 

@@ -24,7 +24,8 @@ class ContentComponentData {
     );
   }
 
-  String string(String key) => data[key] is String ? data[key] as String : '';
+  String string(String key, {String fallback = ''}) =>
+      data[key] is String ? data[key] as String : fallback;
 
   List<String> strings(String key) {
     final value = data[key];

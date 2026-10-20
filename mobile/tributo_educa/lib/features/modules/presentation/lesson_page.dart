@@ -4,6 +4,9 @@ import '../../../core/theme/app_theme.dart';
 import '../data/content_component_data.dart';
 import '../data/module_data.dart';
 import '../data/modules_repository.dart';
+import 'lesson_content_block.dart';
+
+export 'lesson_content_block.dart' show LessonContentBlock;
 
 class LessonPage extends StatefulWidget {
   const LessonPage({
@@ -140,130 +143,4 @@ class _EducationNotice extends StatelessWidget {
       ],
     ),
   );
-}
-
-class LessonContentBlock extends StatelessWidget {
-  const LessonContentBlock({super.key, required this.block});
-
-  final ContentComponentData block;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(17),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (block.title.isNotEmpty) ...[
-              Text(block.title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 9),
-            ],
-            switch (block.type) {
-              'rich_text' ||
-              'info_card' => SelectableText(block.string('body')),
-              'checklist' => Column(
-                children: [
-                  for (final item in block.strings('items'))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 9),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.check_circle_outline_rounded,
-                            size: 20,
-                            color: AppColors.green,
-                          ),
-                          const SizedBox(width: 9),
-                          Expanded(child: Text(item)),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-              'comparison_table' => _ComparisonTable(block: block),
-              'faq' => Column(
-                children: [
-                  for (final item in block.faqs())
-                    ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      title: Text(item['question']!),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(item['answer']!),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-              'glossary' => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    block.string('term'),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  Text(block.string('definition')),
-                ],
-              ),
-              'legal_notice' => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(block.string('body')),
-                  if (block.string('source').isNotEmpty) ...[
-                    const SizedBox(height: 9),
-                    SelectableText(
-                      'Fuente: ${block.string('source')}',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ],
-              ),
-              _ => const Text(
-                'Este tipo de contenido requiere una versión más reciente de la aplicación.',
-              ),
-            },
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ComparisonTable extends StatelessWidget {
-  const _ComparisonTable({required this.block});
-
-  final ContentComponentData block;
-
-  @override
-  Widget build(BuildContext context) {
-    final columns = block.strings('columns');
-    final rows = block.rows('rows');
-    if (columns.isEmpty) return const Text('Tabla sin columnas.');
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columnSpacing: 18,
-        columns: [
-          for (final column in columns) DataColumn(label: Text(column)),
-        ],
-        rows: [
-          for (final row in rows)
-            DataRow(
-              cells: [
-                for (var index = 0; index < columns.length; index++)
-                  DataCell(
-                    SizedBox(
-                      width: 155,
-                      child: Text(index < row.length ? row[index] : ''),
-                    ),
-                  ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
 }
