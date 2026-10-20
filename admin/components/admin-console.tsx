@@ -147,23 +147,42 @@ export function AdminConsole() {
 
   if (gate === 'signed-out') {
     return (
-      <main className="gate-screen">
-        <section className="gate-card login-card">
-          <BrandMark />
-          <p className="eyebrow">PANEL ADMINISTRATIVO</p>
-          <h1>Inicia sesión</h1>
-          <p className="muted-copy">Accede para administrar los contenidos educativos.</p>
-          <form className="stack-form" onSubmit={handleLogin}>
-            <label className="field-label" htmlFor="email">Correo electrónico</label>
-            <input id="email" name="email" type="email" autoComplete="username" required />
-            <label className="field-label" htmlFor="password">Contraseña</label>
-            <input id="password" name="password" type="password" autoComplete="current-password" required />
-            {authError && <p className="form-error" role="alert">{authError}</p>}
-            <button className="button button-primary button-wide" disabled={authBusy}>
-              {authBusy ? 'Ingresando...' : 'Iniciar sesión'}
-            </button>
-          </form>
-        </section>
+      <main className="gate-screen login-screen">
+        <div className="login-layout">
+          <section className="login-intro" aria-label="Tributo Educa Perú">
+            <BrandMark inverse />
+            <div className="login-intro-copy">
+              <p className="login-kicker">APRENDIZAJE QUE IMPULSA</p>
+              <h1>Conocimiento claro para tomar mejores decisiones.</h1>
+              <p>Administra los contenidos que ayudan a cada persona a entender y formalizar su negocio.</p>
+            </div>
+            <div className="login-intro-foot"><span aria-hidden="true" /> Plataforma educativa para el Perú</div>
+          </section>
+
+          <section className="login-panel" aria-labelledby="login-title">
+            <div className="login-form-wrap">
+              <p className="eyebrow">ACCESO ADMINISTRATIVO</p>
+              <h2 id="login-title">Te damos la bienvenida</h2>
+              <p className="muted-copy">Ingresa con tu cuenta autorizada para continuar.</p>
+              <form className="stack-form login-form" onSubmit={handleLogin}>
+                <label className="field-label" htmlFor="email">Correo electrónico</label>
+                <input id="email" name="email" type="email" autoComplete="username" placeholder="nombre@correo.com" required />
+                <label className="field-label" htmlFor="password">Contraseña</label>
+                <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Ingresa tu contraseña" required />
+                {authError && <p className="form-error" role="alert">{authError}</p>}
+                <button className="button button-primary button-wide login-submit" type="submit" disabled={authBusy}>
+                  {authBusy ? 'Ingresando...' : 'Iniciar sesión'}
+                  {!authBusy && <span aria-hidden="true">→</span>}
+                </button>
+              </form>
+              <p className="login-security">
+                <svg aria-hidden="true" viewBox="0 0 16 16" focusable="false"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3.5 7h9v7h-9z" /></svg>
+                Acceso seguro protegido por Firebase
+              </p>
+            </div>
+            <footer className="login-footer">© 2026 Tributo Educa Perú</footer>
+          </section>
+        </div>
       </main>
     );
   }
