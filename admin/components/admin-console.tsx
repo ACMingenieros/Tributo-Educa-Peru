@@ -41,6 +41,7 @@ import {
   reorderComponents,
   reorderSubmodules,
   saveInitialCurriculum,
+  saveWordContentDrafts,
   updateComponent,
   updateModule,
   updateSubmodule,
@@ -315,14 +316,14 @@ function ContentWorkspace({
     return () => { alive = false; };
   }, [db, moduleId, role, submoduleId]);
 
-  async function runAction(action: () => Promise<void>, successMessage: string) {
+  async function runAction(action: () => Promise<void | string>, successMessage: string) {
     await runActionOnce(async () => {
       setSaving(true);
       setError('');
       setNotice('');
       try {
-        await action();
-        setNotice(successMessage);
+        const result = await action();
+        setNotice(result || successMessage);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'No se pudo completar la operación.');
       } finally {
@@ -337,6 +338,15 @@ function ContentWorkspace({
       await saveInitialCurriculum(db, user.uid);
       await refreshModules();
     }, 'Estructura inicial creada como borrador.');
+  }
+
+  async function handleSeedWordContent() {
+    if (role !== 'admin' || !window.confirm('Se agregarán borradores educativos a las lecciones vacías de los seis módulos. Los contenidos existentes se conservarán. ¿Continuar?')) return;
+    await runAction(async () => {
+      const result = await saveWordContentDrafts(db, user.uid);
+      if (moduleId && submoduleId) setComponents(await listComponents(db, moduleId, submoduleId, role));
+      return `${result.created} bloques creados como borrador; ${result.skipped} lecciones con contenido se conservaron.`;
+    }, 'Contenido inicial creado como borrador.');
   }
 
   async function handleSaveModule(input: {
@@ -520,6 +530,12 @@ function ContentWorkspace({
               <p className="muted-copy">Organiza el contenido y publícalo para que llegue a la aplicación móvil.</p>
             </div>
             <div className="heading-actions">
+              {role === 'admin' && modules.length > 0 && (
+                <button className="button button-secondary" onClick={handleSeedWordContent} disabled={saving} aria-busy={saving}>
+                  {saving && <span className="button-spinner" aria-hidden="true" />}
+                  Cargar borradores del temario
+                </button>
+              )}
               <button className="button button-secondary" onClick={() => setPreviewOpen(true)} disabled={!selectedSubmodule}>
                 Vista previa
               </button>
@@ -594,7 +610,6 @@ function ContentWorkspace({
                     onMoveComponent={moveComponent}
                     onDeleteComponent={handleDeleteComponent}
                     onPublish={handlePublishSubmodule}
-                    onRefresh={() => listComponents(db, moduleId, submoduleId, role).then(setComponents)}
                   />
                 ) : (
                   <ModuleDetail

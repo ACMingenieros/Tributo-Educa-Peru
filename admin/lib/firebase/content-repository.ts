@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore';
 
 import { initialCurriculum, slugify } from './curriculum';
+import { wordLessons } from './word-content';
 
 type ModuleInput = Pick<Module, 'title' | 'slug' | 'description' | 'order' | 'isVisible'>;
 type SubmoduleInput = Pick<Submodule, 'title' | 'slug' | 'description' | 'order' | 'isVisible'>;
@@ -394,6 +395,60 @@ export async function saveInitialCurriculum(db: Firestore, actorId: string) {
     moduleOrder += 1;
   }
   await batch.commit();
+}
+
+export async function saveWordContentDrafts(db: Firestore, actorId: string) {
+  const moduleSnapshots = await getDocs(collection(db, 'modules'));
+  const modulesBySlug = new Map(moduleSnapshots.docs.map((item) => [item.data().slug, item]));
+  const submodulesByModule = new Map(await Promise.all(
+    [...modulesBySlug.values()].map(async (module) => [
+      module.id,
+      await getDocs(collection(db, 'modules', module.id, 'submodules')),
+    ] as const),
+  ));
+
+  // Resolve the whole temario before any write so missing lessons cannot cause a partial import.
+  const locations = wordLessons.map((lesson) => {
+    const module = modulesBySlug.get(lesson.moduleSlug);
+    if (!module) throw new Error(`Falta el módulo «${lesson.moduleSlug}». Carga primero la estructura del Word.`);
+    const submodules = submodulesByModule.get(module.id);
+    if (!submodules) throw new Error(`No se pudieron cargar los temas de «${module.data().title}».`);
+    const submodule = submodules.docs.find((item) => item.data().slug === lesson.submoduleSlug);
+    if (!submodule) throw new Error(`Falta el submódulo «${lesson.submoduleSlug}» en «${module.data().title}».`);
+    return { moduleId: module.id, submoduleId: submodule.id, blocks: lesson.blocks };
+  });
+  const existing = await Promise.all(locations.map((lesson) =>
+    getDocs(collection(db, 'modules', lesson.moduleId, 'submodules', lesson.submoduleId, 'components')),
+  ));
+  const prepared = locations.filter((_, index) => existing[index].empty);
+  const skipped = locations.length - prepared.length;
+
+  if (prepared.length === 0) return { created: 0, skipped };
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  let created = 0;
+  for (const lesson of prepared) {
+    lesson.blocks.forEach((block, order) => {
+      const reference = doc(collection(db, 'modules', lesson.moduleId, 'submodules', lesson.submoduleId, 'components'));
+      batch.set(reference, {
+        ...block,
+        moduleId: lesson.moduleId,
+        submoduleId: lesson.submoduleId,
+        order,
+        status: 'draft',
+        isVisible: true,
+        createdBy: actorId,
+        updatedBy: actorId,
+        createdAt: now,
+        updatedAt: now,
+        publishedAt: null,
+        serverUpdatedAt: serverTimestamp(),
+      });
+      created += 1;
+    });
+  }
+  await batch.commit();
+  return { created, skipped };
 }
 
 export async function reorderSubmodules(
