@@ -35,8 +35,13 @@ class ContentComponentData {
     final value = data[key];
     if (value is! List) return const [];
     return value
-        .whereType<List>()
-        .map((row) => row.whereType<String>().toList())
+        .map((row) {
+          final cells = row is Map ? row['cells'] : row;
+          return cells is List
+              ? cells.whereType<String>().toList()
+              : <String>[];
+        })
+        .where((row) => row.isNotEmpty)
         .toList();
   }
 

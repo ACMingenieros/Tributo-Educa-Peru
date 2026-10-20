@@ -10,8 +10,12 @@ void main() {
       'data': {
         'columns': ['Régimen', 'Detalle'],
         'rows': [
-          ['RMT', 'MYPE'],
-          ['General', 'Todos'],
+          {
+            'cells': ['RMT', 'MYPE'],
+          },
+          {
+            'cells': ['General', 'Todos'],
+          },
         ],
       },
     });

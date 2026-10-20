@@ -21,3 +21,17 @@ test('every lesson has editable blocks and an official source', () => {
     lesson.blocks.forEach((block) => assert.ok(block.title.trim()));
   }
 });
+
+test('all editorial blocks use Firestore-compatible arrays', () => {
+  function inspect(value) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        assert.equal(Array.isArray(item), false, 'Firestore rejects an array directly inside another array');
+        inspect(item);
+      }
+    } else if (value && typeof value === 'object') {
+      Object.values(value).forEach(inspect);
+    }
+  }
+  wordLessons.forEach((lesson) => lesson.blocks.forEach((block) => inspect(block.data)));
+});

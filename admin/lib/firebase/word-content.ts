@@ -14,7 +14,9 @@ interface WordLesson {
 
 const text = (title: string, body: string): WordContentBlock => ({ type: 'rich_text', title, data: { body } });
 const list = (title: string, items: string[]): WordContentBlock => ({ type: 'checklist', title, data: { items } });
-const table = (title: string, columns: string[], rows: string[][]): WordContentBlock => ({ type: 'comparison_table', title, data: { columns, rows } });
+const table = (title: string, columns: string[], rows: string[][]): WordContentBlock => ({
+  type: 'comparison_table', title, data: { columns, rows: rows.map((cells) => ({ cells })) },
+});
 const source = (url: string): WordContentBlock => ({
   type: 'legal_notice',
   title: 'Fuente y alcance',

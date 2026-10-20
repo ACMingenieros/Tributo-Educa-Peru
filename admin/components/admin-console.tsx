@@ -32,12 +32,15 @@ import {
   createComponent,
   createModule,
   createSubmodule,
+  deleteContentTree,
   deleteComponent,
   listComponents,
   listModules,
   listSubmodules,
   publishModule,
   publishSubmodule,
+  prepareModuleDeletion,
+  prepareSubmoduleDeletion,
   reorderComponents,
   reorderSubmodules,
   saveInitialCurriculum,
@@ -48,6 +51,7 @@ import {
 } from '../lib/firebase/content-repository';
 import { getFirebaseClient } from '../lib/firebase/client';
 import { resolvePanelRole } from '../lib/auth/access.mjs';
+import { confirmAction, showToast } from '../lib/notifications';
 import {
   contentFields,
   emptyFieldValues,
@@ -254,6 +258,9 @@ function ContentWorkspace({
   const [search, setSearch] = useState('');
   const runActionOnce = useMemo(createAsyncActionLock, []);
 
+  useEffect(() => { if (notice) void showToast('success', notice); }, [notice]);
+  useEffect(() => { if (error) void showToast('error', error); }, [error]);
+
   const selectedModule = modules.find((item) => item.id === moduleId) ?? null;
   const selectedSubmodule = submodules.find((item) => item.id === submoduleId) ?? null;
   const filteredModules = modules.filter((item) =>
@@ -316,14 +323,14 @@ function ContentWorkspace({
     return () => { alive = false; };
   }, [db, moduleId, role, submoduleId]);
 
-  async function runAction(action: () => Promise<void | string>, successMessage: string) {
+  async function runAction(action: () => Promise<void | string | null>, successMessage: string) {
     await runActionOnce(async () => {
       setSaving(true);
       setError('');
       setNotice('');
       try {
         const result = await action();
-        setNotice(result || successMessage);
+        if (result !== null) setNotice(result || successMessage);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'No se pudo completar la operación.');
       } finally {
@@ -333,7 +340,7 @@ function ContentWorkspace({
   }
 
   async function handleSeedCurriculum() {
-    if (!window.confirm('Se crearán como borradores los seis módulos y sus submódulos del documento Word.')) return;
+    if (!await confirmAction('Cargar estructura del Word', 'Se crearán como borradores los seis módulos y sus submódulos del documento Word.')) return;
     await runAction(async () => {
       await saveInitialCurriculum(db, user.uid);
       await refreshModules();
@@ -341,7 +348,7 @@ function ContentWorkspace({
   }
 
   async function handleSeedWordContent() {
-    if (role !== 'admin' || !window.confirm('Se agregarán borradores educativos a las lecciones vacías de los seis módulos. Los contenidos existentes se conservarán. ¿Continuar?')) return;
+    if (role !== 'admin' || !await confirmAction('Cargar contenido del Word', 'Se agregarán borradores educativos a las lecciones vacías de los seis módulos. Los contenidos existentes se conservarán.')) return;
     await runAction(async () => {
       const result = await saveWordContentDrafts(db, user.uid);
       if (moduleId && submoduleId) setComponents(await listComponents(db, moduleId, submoduleId, role));
@@ -355,7 +362,7 @@ function ContentWorkspace({
     description: string;
     order: number;
   }) {
-    if (editingModule?.status === 'published' && !window.confirm('Al guardar, el módulo pasará a borrador y dejará de mostrarse en la app hasta que vuelvas a publicarlo. ¿Continuar?')) return;
+    if (editingModule?.status === 'published' && !await confirmAction('Retirar módulo publicado', 'Al guardar, el módulo pasará a borrador y dejará de mostrarse en la app hasta que vuelvas a publicarlo.')) return;
     const action = async () => {
       if (editingModule) {
         await updateModule(db, editingModule.id, { ...input, isVisible: editingModule.isVisible }, user.uid);
@@ -377,7 +384,7 @@ function ContentWorkspace({
     order: number;
   }) {
     if (!moduleId) return;
-    if (!submoduleDialog && selectedSubmodule?.status === 'published' && !window.confirm('Al guardar, el submódulo pasará a borrador y dejará de mostrarse en la app hasta que vuelvas a publicarlo. ¿Continuar?')) return;
+    if (!submoduleDialog && selectedSubmodule?.status === 'published' && !await confirmAction('Retirar submódulo publicado', 'Al guardar, el submódulo pasará a borrador y dejará de mostrarse en la app hasta que vuelvas a publicarlo.')) return;
     await runAction(async () => {
       if (selectedSubmodule && submoduleDialog === false) {
         await updateSubmodule(db, moduleId, selectedSubmodule.id, { ...input, isVisible: selectedSubmodule.isVisible }, user.uid);
@@ -416,7 +423,7 @@ function ContentWorkspace({
 
   async function handlePublishModule() {
     if (!selectedModule || role !== 'admin') return;
-    if (!window.confirm(`¿Publicar “${selectedModule.title}”? Sus submódulos seguirán teniendo que publicarse individualmente.`)) return;
+    if (!await confirmAction('Publicar módulo', `¿Publicar “${selectedModule.title}”? Sus submódulos seguirán teniendo que publicarse individualmente.`)) return;
     await runAction(async () => {
       await publishModule(db, selectedModule.id, user.uid);
       await refreshModules();
@@ -438,7 +445,7 @@ function ContentWorkspace({
       setError(caught instanceof Error ? `Revisa los componentes: ${caught.message}` : 'Hay componentes incompletos.');
       return;
     }
-    if (!window.confirm(`¿Publicar “${selectedSubmodule.title}” en la aplicación móvil?`)) return;
+    if (!await confirmAction('Publicar submódulo', `¿Publicar “${selectedSubmodule.title}” en la aplicación móvil?`)) return;
     await runAction(async () => {
       await publishSubmodule(db, selectedModule.id, selectedSubmodule.id, user.uid);
       const [nextSubmodules, nextComponents] = await Promise.all([
@@ -451,7 +458,7 @@ function ContentWorkspace({
   }
 
   async function handleArchiveModule(module: Module) {
-    if (role !== 'admin' || !window.confirm(`¿Archivar “${module.title}”? Dejará de aparecer en la app móvil.`)) return;
+    if (role !== 'admin' || !await confirmAction('Archivar módulo', `¿Archivar “${module.title}”? Dejará de aparecer en la app móvil.`, true)) return;
     await runAction(async () => {
       await archiveModule(db, module.id, user.uid);
       await refreshModules();
@@ -459,7 +466,7 @@ function ContentWorkspace({
   }
 
   async function handleArchiveSubmodule(submodule: Submodule) {
-    if (role !== 'admin' || !moduleId || !window.confirm(`¿Archivar “${submodule.title}”?`)) return;
+    if (role !== 'admin' || !moduleId || !await confirmAction('Archivar submódulo', `¿Archivar “${submodule.title}”?`, true)) return;
     await runAction(async () => {
       await archiveSubmodule(db, moduleId, submodule.id, user.uid);
       setSubmodules(await listSubmodules(db, moduleId, role));
@@ -468,11 +475,37 @@ function ContentWorkspace({
   }
 
   async function handleDeleteComponent(component: ContentComponent) {
-    if (role !== 'admin' || !moduleId || !submoduleId || !window.confirm(`¿Eliminar el componente “${component.title || componentLabels[component.type]}”? Esta acción no se puede deshacer.`)) return;
+    if (role !== 'admin' || !moduleId || !submoduleId || !await confirmAction('Eliminar componente', `¿Eliminar “${component.title || componentLabels[component.type]}”? Esta acción no se puede deshacer.`, true)) return;
     await runAction(async () => {
       await deleteComponent(db, moduleId, submoduleId, component.id);
       setComponents((current) => current.filter((item) => item.id !== component.id));
     }, 'Componente eliminado.');
+  }
+
+  async function handleDeleteModule(module: Module) {
+    if (role !== 'admin') return;
+    await runAction(async () => {
+      const plan = await prepareModuleDeletion(db, module.id);
+      const accepted = await confirmAction('Borrar módulo definitivamente', `¿Borrar “${plan.title}” (${module.id})? Se eliminarán ${plan.submoduleCount} submódulos y ${plan.componentCount} bloques. Esta acción no se puede deshacer.`, true);
+      if (!accepted) return null;
+      await deleteContentTree(db, plan);
+      setSubmoduleId('');
+      await refreshModules();
+      return 'Módulo y contenido asociado eliminados.';
+    }, 'Módulo eliminado.');
+  }
+
+  async function handleDeleteSubmodule(submodule: Submodule) {
+    if (role !== 'admin' || !moduleId) return;
+    await runAction(async () => {
+      const plan = await prepareSubmoduleDeletion(db, moduleId, submodule.id);
+      const accepted = await confirmAction('Borrar submódulo definitivamente', `¿Borrar “${plan.title}” (${submodule.id}) y sus ${plan.componentCount} bloques? Esta acción no se puede deshacer.`, true);
+      if (!accepted) return null;
+      await deleteContentTree(db, plan);
+      setSubmodules(await listSubmodules(db, moduleId, role));
+      if (submoduleId === submodule.id) setSubmoduleId('');
+      return 'Submódulo y componentes eliminados.';
+    }, 'Submódulo eliminado.');
   }
 
   async function moveComponent(index: number, direction: -1 | 1) {
@@ -609,6 +642,7 @@ function ContentWorkspace({
                     onEditComponent={(component) => { setEditingComponent(component); setComponentDialog(true); }}
                     onMoveComponent={moveComponent}
                     onDeleteComponent={handleDeleteComponent}
+                    onDelete={() => handleDeleteSubmodule(selectedSubmodule)}
                     onPublish={handlePublishSubmodule}
                   />
                 ) : (
@@ -623,8 +657,10 @@ function ContentWorkspace({
                     onOpenSubmodule={(id) => setSubmoduleId(id)}
                     onMoveSubmodule={moveSubmodule}
                     onArchiveSubmodule={handleArchiveSubmodule}
+                    onDeleteSubmodule={handleDeleteSubmodule}
                     onPublish={handlePublishModule}
                     onArchiveModule={() => handleArchiveModule(selectedModule)}
+                    onDeleteModule={() => handleDeleteModule(selectedModule)}
                   />
                 )
               ) : (
@@ -715,8 +751,10 @@ function ModuleDetail({
   onOpenSubmodule,
   onMoveSubmodule,
   onArchiveSubmodule,
+  onDeleteSubmodule,
   onPublish,
   onArchiveModule,
+  onDeleteModule,
 }: {
   module: Module;
   submodules: Submodule[];
@@ -728,8 +766,10 @@ function ModuleDetail({
   onOpenSubmodule: (id: string) => void;
   onMoveSubmodule: (index: number, direction: -1 | 1) => void;
   onArchiveSubmodule: (submodule: Submodule) => void;
+  onDeleteSubmodule: (submodule: Submodule) => void;
   onPublish: () => void;
   onArchiveModule: () => void;
+  onDeleteModule: () => void;
 }) {
   return (
     <>
@@ -750,6 +790,9 @@ function ModuleDetail({
           )}
           {role === 'admin' && module.status !== 'archived' && (
             <button className="button button-quiet button-small" onClick={onArchiveModule} disabled={saving}>Archivar</button>
+          )}
+          {role === 'admin' && (
+            <button className="button button-quiet button-small danger-text" onClick={onDeleteModule} disabled={saving} aria-busy={saving}>Borrar</button>
           )}
         </div>
       </div>
@@ -778,7 +821,10 @@ function ModuleDetail({
                     <td><button className="table-title-button" onClick={() => onOpenSubmodule(item.id)}>{item.title}<small>{item.description || 'Sin descripción'}</small></button></td>
                     <td><StatusBadge status={item.status} /></td>
                     <td className="date-cell">{formatDate(item.updatedAt)}</td>
-                    <td>{role === 'admin' && item.status !== 'archived' && <button className="button button-quiet button-small" onClick={() => onArchiveSubmodule(item)}>Archivar</button>}</td>
+                    <td><div className="detail-actions">
+                      {role === 'admin' && item.status !== 'archived' && <button className="button button-quiet button-small" onClick={() => onArchiveSubmodule(item)} disabled={saving}>Archivar</button>}
+                      {role === 'admin' && <button className="button button-quiet button-small danger-text" onClick={() => onDeleteSubmodule(item)} disabled={saving}>Borrar</button>}
+                    </div></td>
                   </tr>
                 ))}
               </tbody>
@@ -810,6 +856,7 @@ function SubmoduleEditor({
   onEditComponent,
   onMoveComponent,
   onDeleteComponent,
+  onDelete,
   onPublish,
 }: {
   module: Module;
@@ -824,6 +871,7 @@ function SubmoduleEditor({
   onEditComponent: (component: ContentComponent) => void;
   onMoveComponent: (index: number, direction: -1 | 1) => void;
   onDeleteComponent: (component: ContentComponent) => void;
+  onDelete: () => void;
   onPublish: () => void;
 }) {
   const [title, setTitle] = useState(submodule.title);
@@ -846,7 +894,7 @@ function SubmoduleEditor({
       <button className="back-link" onClick={onBack}>← Volver al módulo</button>
       <div className="editor-heading">
         <div><p className="eyebrow">{module.title}</p><h2>{submodule.title}</h2></div>
-        <div className="detail-actions"><StatusBadge status={submodule.status} />{role === 'admin' && submodule.status !== 'published' && <button className="button button-primary button-small" onClick={onPublish} disabled={saving}>Publicar</button>}</div>
+        <div className="detail-actions"><StatusBadge status={submodule.status} />{role === 'admin' && submodule.status !== 'published' && <button className="button button-primary button-small" onClick={onPublish} disabled={saving}>Publicar</button>}{role === 'admin' && <button className="button button-quiet button-small danger-text" onClick={onDelete} disabled={saving}>Borrar</button>}</div>
       </div>
 
       <form className="metadata-form" onSubmit={submit}>

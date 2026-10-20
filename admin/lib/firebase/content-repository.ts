@@ -19,6 +19,7 @@ import {
   updateDoc,
   where,
   writeBatch,
+  type DocumentReference,
   type Firestore,
 } from 'firebase/firestore';
 
@@ -257,6 +258,65 @@ export async function deleteComponent(
   await deleteDoc(
     doc(db, 'modules', moduleId, 'submodules', submoduleId, 'components', componentId),
   );
+}
+
+export interface DeletionPlan {
+  title: string;
+  submoduleCount: number;
+  componentCount: number;
+  references: DocumentReference[];
+}
+
+function ensureDeletionFitsBatch(plan: DeletionPlan) {
+  if (plan.references.length > 500) {
+    throw new Error('Este contenido supera el límite de borrado seguro. Archívalo y elimínalo por partes.');
+  }
+}
+
+export async function prepareModuleDeletion(db: Firestore, moduleId: string): Promise<DeletionPlan> {
+  const moduleReference = doc(db, 'modules', moduleId);
+  const moduleSnapshot = await getDoc(moduleReference);
+  if (!moduleSnapshot.exists()) throw new Error('El módulo ya no existe. Actualiza la lista.');
+
+  const submodules = await getDocs(collection(db, 'modules', moduleId, 'submodules'));
+  const componentSnapshots = await Promise.all(submodules.docs.map((submodule) =>
+    getDocs(collection(db, 'modules', moduleId, 'submodules', submodule.id, 'components')),
+  ));
+  const components = componentSnapshots.flatMap((snapshot) => snapshot.docs.map((item) => item.ref));
+  const plan = {
+    title: String(moduleSnapshot.data().title ?? 'Módulo sin título'),
+    submoduleCount: submodules.size,
+    componentCount: components.length,
+    references: [...components, ...submodules.docs.map((item) => item.ref), moduleReference],
+  };
+  ensureDeletionFitsBatch(plan);
+  return plan;
+}
+
+export async function prepareSubmoduleDeletion(
+  db: Firestore,
+  moduleId: string,
+  submoduleId: string,
+): Promise<DeletionPlan> {
+  const submoduleReference = doc(db, 'modules', moduleId, 'submodules', submoduleId);
+  const submoduleSnapshot = await getDoc(submoduleReference);
+  if (!submoduleSnapshot.exists()) throw new Error('El submódulo ya no existe. Actualiza la lista.');
+  const components = await getDocs(collection(db, 'modules', moduleId, 'submodules', submoduleId, 'components'));
+  const plan = {
+    title: String(submoduleSnapshot.data().title ?? 'Submódulo sin título'),
+    submoduleCount: 0,
+    componentCount: components.size,
+    references: [...components.docs.map((item) => item.ref), submoduleReference],
+  };
+  ensureDeletionFitsBatch(plan);
+  return plan;
+}
+
+export async function deleteContentTree(db: Firestore, plan: DeletionPlan) {
+  ensureDeletionFitsBatch(plan);
+  const batch = writeBatch(db);
+  for (const reference of plan.references) batch.delete(reference);
+  await batch.commit();
 }
 
 export async function reorderComponents(

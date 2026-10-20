@@ -91,7 +91,11 @@ export function fieldValuesFromComponent(component: ContentComponent): Record<st
       values[field.key] = value.join('\n');
     } else if (field.format === 'table-rows' && Array.isArray(value)) {
       values[field.key] = value
-        .map((row) => (Array.isArray(row) ? row.join(' | ') : ''))
+        .map((row) => {
+          if (Array.isArray(row)) return row.join(' | ');
+          const cells = (row as { cells?: unknown }).cells;
+          return Array.isArray(cells) ? cells.join(' | ') : '';
+        })
         .join('\n');
     } else if (field.format === 'faq-rows' && Array.isArray(value)) {
       values[field.key] = value
@@ -149,7 +153,7 @@ export function parseFieldValues(
         if (rows.some((row) => row.length < 2 || row.some((cell) => !cell))) {
           throw new Error('Cada fila debe incluir al menos dos celdas separadas por |.');
         }
-        result[field.key] = rows;
+        result[field.key] = rows.map((cells) => ({ cells }));
         break;
       }
       case 'faq-rows': {
