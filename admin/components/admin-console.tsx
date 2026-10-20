@@ -147,42 +147,46 @@ export function AdminConsole() {
 
   if (gate === 'signed-out') {
     return (
-      <main className="gate-screen login-screen">
-        <div className="login-layout">
-          <section className="login-intro" aria-label="Tributo Educa Perú">
-            <BrandMark inverse />
-            <div className="login-intro-copy">
-              <p className="login-kicker">APRENDIZAJE QUE IMPULSA</p>
-              <h1>Conocimiento claro para tomar mejores decisiones.</h1>
-              <p>Administra los contenidos que ayudan a cada persona a entender y formalizar su negocio.</p>
-            </div>
-            <div className="login-intro-foot"><span aria-hidden="true" /> Plataforma educativa para el Perú</div>
-          </section>
+      <main className="demo-login-page">
+        <section className="login-story" aria-label="Presentación de Tributo Educa">
+          <div className="demo-brand demo-brand-light">
+            <span className="demo-brand-mark" aria-hidden="true">TE</span>
+            <span>Tributo Educa<small>PERÚ · PANEL ADMINISTRATIVO</small></span>
+          </div>
+          <div className="login-story-copy">
+            <p className="demo-eyebrow">CENTRO DE CONTENIDOS</p>
+            <h1>Conocimiento claro para negocios que quieren crecer.</h1>
+            <p>Organiza módulos, lecciones y recursos educativos desde un solo lugar.</p>
+          </div>
+          <div className="story-preview" aria-hidden="true">
+            <div className="story-preview-top"><span>Ruta de aprendizaje</span><span className="story-dot" /></div>
+            <strong>Tributario</strong>
+            <div className="story-progress"><span /></div>
+            <small>Contenido ordenado · Fácil de actualizar</small>
+          </div>
+          <small className="story-footer">Una experiencia educativa pensada para el Perú.</small>
+        </section>
 
-          <section className="login-panel" aria-labelledby="login-title">
-            <div className="login-form-wrap">
-              <p className="eyebrow">ACCESO ADMINISTRATIVO</p>
-              <h2 id="login-title">Te damos la bienvenida</h2>
-              <p className="muted-copy">Ingresa con tu cuenta autorizada para continuar.</p>
-              <form className="stack-form login-form" onSubmit={handleLogin}>
-                <label className="field-label" htmlFor="email">Correo electrónico</label>
-                <input id="email" name="email" type="email" autoComplete="username" placeholder="nombre@correo.com" required />
-                <label className="field-label" htmlFor="password">Contraseña</label>
-                <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Ingresa tu contraseña" required />
-                {authError && <p className="form-error" role="alert">{authError}</p>}
-                <button className="button button-primary button-wide login-submit" type="submit" disabled={authBusy}>
-                  {authBusy ? 'Ingresando...' : 'Iniciar sesión'}
-                  {!authBusy && <span aria-hidden="true">→</span>}
-                </button>
-              </form>
-              <p className="login-security">
-                <svg aria-hidden="true" viewBox="0 0 16 16" focusable="false"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3.5 7h9v7h-9z" /></svg>
-                Acceso seguro protegido por Firebase
-              </p>
-            </div>
-            <footer className="login-footer">© 2026 Tributo Educa Perú</footer>
-          </section>
-        </div>
+        <section className="login-panel" aria-labelledby="login-title">
+          <div className="login-form-wrap">
+            <p className="demo-eyebrow">BIENVENIDO/A</p>
+            <h2 id="login-title">Iniciar sesión</h2>
+            <p className="demo-muted">Ingresa tus credenciales para acceder al panel.</p>
+            <form className="demo-login-form" onSubmit={handleLogin}>
+              <label htmlFor="email">Correo electrónico</label>
+              <input id="email" name="email" type="email" placeholder="nombre@empresa.pe" autoComplete="username" required />
+              <div className="password-label"><label htmlFor="password">Contraseña</label></div>
+              <input id="password" name="password" type="password" placeholder="Ingresa tu contraseña" autoComplete="current-password" required />
+              {authError && <p className="form-error" role="alert">{authError}</p>}
+              <button className="demo-button demo-button-primary" type="submit" disabled={authBusy}>
+                {authBusy ? 'Ingresando...' : 'Iniciar sesión'}
+                {!authBusy && <span aria-hidden="true">→</span>}
+              </button>
+            </form>
+            <p className="login-disclaimer"><span aria-hidden="true">ⓘ</span> Acceso seguro para el equipo autorizado de Tributo Educa Perú.</p>
+          </div>
+          <footer className="login-footer">© 2026 Tributo Educa Perú</footer>
+        </section>
       </main>
     );
   }
