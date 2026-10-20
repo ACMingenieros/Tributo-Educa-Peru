@@ -1,5 +1,5 @@
-import { AdminDemo } from '../components/admin-demo';
+import { AdminConsole } from '../components/admin-console';
 
 export default function HomePage() {
-  return <AdminDemo />;
+  return <AdminConsole />;
 }
