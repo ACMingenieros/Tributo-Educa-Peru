@@ -1,30 +1,54 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:tributo_educa/main.dart';
+import 'package:tributo_educa/features/modules/data/content_component_data.dart';
+import 'package:tributo_educa/features/modules/presentation/lesson_page.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('renders text, a checklist, and an unknown type safely', (
+    tester,
+  ) async {
+    const blocks = [
+      ContentComponentData(
+        id: 'a',
+        type: 'rich_text',
+        title: 'Concepto',
+        order: 0,
+        data: {'body': 'Aprende a formalizarte.'},
+      ),
+      ContentComponentData(
+        id: 'b',
+        type: 'checklist',
+        title: 'Pasos',
+        order: 1,
+        data: {
+          'items': ['Revisa tu RUC'],
+        },
+      ),
+      ContentComponentData(
+        id: 'c',
+        type: 'future_type',
+        title: 'Futuro',
+        order: 2,
+        data: {},
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                for (final block in blocks) LessonContentBlock(block: block),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Concepto'), findsOneWidget);
+    expect(find.text('Aprende a formalizarte.'), findsOneWidget);
+    expect(find.text('Revisa tu RUC'), findsOneWidget);
+    expect(find.textContaining('versión más reciente'), findsOneWidget);
   });
 }

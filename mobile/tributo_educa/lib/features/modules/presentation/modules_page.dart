@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/module_data.dart';
 import '../data/modules_repository.dart';
+import 'lesson_page.dart';
 
 class ModulesPage extends StatefulWidget {
   const ModulesPage({super.key, this.initialQuery = ''});
@@ -156,7 +157,7 @@ class _ModuleTile extends StatelessWidget {
           ),
           child: Icon(module.icon, color: AppColors.blue),
         ),
-        title: Text('Módulo $number: ${module.title}'),
+        title: Text(module.title.startsWith('Módulo ') ? module.title : 'Módulo $number: ${module.title}'),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(module.description),
@@ -277,10 +278,12 @@ class _ModuleDetailPageState extends State<_ModuleDetailPage> {
                             ? null
                             : Text(submodules[index].description),
                         trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'La lectura de las lecciones estará disponible pronto.',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => LessonPage(
+                              module: module,
+                              submodule: submodules[index],
+                              repository: widget.repository,
                             ),
                           ),
                         ),
