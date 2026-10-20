@@ -25,6 +25,7 @@ import {
 } from 'react';
 
 import { componentLabels } from '../lib/firebase/curriculum';
+import { createAsyncActionLock } from '../lib/async-action-lock.mjs';
 import {
   archiveModule,
   archiveSubmodule,
@@ -250,6 +251,7 @@ function ContentWorkspace({
   const [editingComponent, setEditingComponent] = useState<ContentComponent | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const runActionOnce = useMemo(createAsyncActionLock, []);
 
   const selectedModule = modules.find((item) => item.id === moduleId) ?? null;
   const selectedSubmodule = submodules.find((item) => item.id === submoduleId) ?? null;
@@ -314,17 +316,19 @@ function ContentWorkspace({
   }, [db, moduleId, role, submoduleId]);
 
   async function runAction(action: () => Promise<void>, successMessage: string) {
-    setSaving(true);
-    setError('');
-    setNotice('');
-    try {
-      await action();
-      setNotice(successMessage);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'No se pudo completar la operación.');
-    } finally {
-      setSaving(false);
-    }
+    await runActionOnce(async () => {
+      setSaving(true);
+      setError('');
+      setNotice('');
+      try {
+        await action();
+        setNotice(successMessage);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'No se pudo completar la operación.');
+      } finally {
+        setSaving(false);
+      }
+    });
   }
 
   async function handleSeedCurriculum() {
@@ -632,6 +636,7 @@ function ContentWorkspace({
         <ModuleFormDialog
           module={editingModule}
           count={modules.length}
+          saving={saving}
           onClose={() => setModuleDialog(false)}
           onSave={handleSaveModule}
         />
@@ -640,6 +645,7 @@ function ContentWorkspace({
         <SubmoduleFormDialog
           submodule={null}
           count={submodules.length}
+          saving={saving}
           onClose={() => setSubmoduleDialog(false)}
           onSave={handleSaveSubmodule}
         />
@@ -834,7 +840,7 @@ function SubmoduleEditor({
           <label className="form-field"><span>Identificador URL</span><input value={slug} onChange={(event) => setSlug(event.target.value)} required maxLength={140} /></label>
           <label className="form-field full-width"><span>Descripción breve</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={2} maxLength={300} /></label>
         </div>
-        <div className="form-actions"><span className="muted-copy">Los cambios se guardan como borrador.</span><button className="button button-secondary" disabled={saving}>Guardar datos</button></div>
+        <div className="form-actions"><span className="muted-copy">Los cambios se guardan como borrador.</span><button className="button button-secondary" disabled={saving} aria-busy={saving}>{saving && <span className="button-spinner" aria-hidden="true" />}{saving ? 'Guardando...' : 'Guardar datos'}</button></div>
       </form>
 
       <div className="component-heading">
@@ -876,11 +882,13 @@ function SubmoduleEditor({
 function ModuleFormDialog({
   module,
   count,
+  saving,
   onClose,
   onSave,
 }: {
   module: Module | null;
   count: number;
+  saving: boolean;
   onClose: () => void;
   onSave: (input: { title: string; slug: string; description: string; order: number }) => void;
 }) {
@@ -902,7 +910,7 @@ function ModuleFormDialog({
         <label className="form-field"><span>Descripción</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={300} /></label>
         <label className="form-field"><span>Orden</span><input type="number" min={0} value={order} onChange={(event) => setOrder(Number(event.target.value))} required /></label>
         <p className="muted-copy">El módulo se guardará como borrador. La imagen se podrá asociar cuando se configure la biblioteca de archivos.</p>
-        <div className="dialog-actions"><button type="button" className="button button-secondary" onClick={onClose}>Cancelar</button><button className="button button-primary">Guardar borrador</button></div>
+        <div className="dialog-actions"><button type="button" className="button button-secondary" onClick={onClose} disabled={saving}>Cancelar</button><button type="submit" className="button button-primary" disabled={saving} aria-busy={saving}>{saving && <span className="button-spinner" aria-hidden="true" />}{saving ? 'Guardando...' : 'Guardar borrador'}</button></div>
       </form>
     </Dialog>
   );
@@ -911,11 +919,13 @@ function ModuleFormDialog({
 function SubmoduleFormDialog({
   submodule,
   count,
+  saving,
   onClose,
   onSave,
 }: {
   submodule: Submodule | null;
   count: number;
+  saving: boolean;
   onClose: () => void;
   onSave: (input: { title: string; slug: string; description: string; order: number }) => void;
 }) {
@@ -931,7 +941,7 @@ function SubmoduleFormDialog({
         <label className="form-field"><span>Descripción</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={300} /></label>
         <label className="form-field"><span>Orden</span><input type="number" min={0} value={order} onChange={(event) => setOrder(Number(event.target.value))} required /></label>
         <p className="muted-copy">Los submódulos se guardan como borrador y no aparecen en la app hasta ser publicados.</p>
-        <div className="dialog-actions"><button type="button" className="button button-secondary" onClick={onClose}>Cancelar</button><button className="button button-primary">Guardar borrador</button></div>
+        <div className="dialog-actions"><button type="button" className="button button-secondary" onClick={onClose} disabled={saving}>Cancelar</button><button type="submit" className="button button-primary" disabled={saving} aria-busy={saving}>{saving && <span className="button-spinner" aria-hidden="true" />}{saving ? 'Guardando...' : 'Guardar borrador'}</button></div>
       </form>
     </Dialog>
   );
@@ -1002,7 +1012,7 @@ function ComponentFormDialog({
         </div>
         {formError && <p className="form-error" role="alert">{formError}</p>}
         <p className="muted-copy">El contenido se guarda como borrador. La app móvil solo recibe componentes publicados y compatibles.</p>
-        <div className="dialog-actions"><button type="button" className="button button-secondary" onClick={onClose}>Cancelar</button><button className="button button-primary" disabled={saving}>{saving ? 'Guardando...' : 'Guardar componente'}</button></div>
+        <div className="dialog-actions"><button type="button" className="button button-secondary" onClick={onClose} disabled={saving}>Cancelar</button><button type="submit" className="button button-primary" disabled={saving} aria-busy={saving}>{saving && <span className="button-spinner" aria-hidden="true" />}{saving ? 'Guardando...' : 'Guardar componente'}</button></div>
       </form>
     </Dialog>
   );
