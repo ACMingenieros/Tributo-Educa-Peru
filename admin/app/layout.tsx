@@ -7,8 +7,8 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 import 'toastr/build/toastr.min.css';
 
 export const metadata: Metadata = {
-  title: 'Tributo Educa Perú - Demo administrativa',
-  description: 'Demostración visual del panel administrativo de Tributo Educa Perú',
+  title: 'Tributo Educa Perú · Administración',
+  description: 'Panel administrativo de Tributo Educa Perú',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

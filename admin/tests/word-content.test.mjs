@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { initialCurriculum, slugify } from '../lib/firebase/curriculum.ts';
-import { wordLessons } from '../lib/firebase/word-content.ts';
+import { wordContentLegacyTitles, wordLessons } from '../lib/firebase/word-content.ts';
 
 test('Word content covers every curriculum submodule exactly once', () => {
   const expected = initialCurriculum.flatMap((module) =>
@@ -34,4 +34,22 @@ test('all editorial blocks use Firestore-compatible arrays', () => {
     }
   }
   wordLessons.forEach((lesson) => lesson.blocks.forEach((block) => inspect(block.data)));
+});
+
+test('lessons vary their teaching formats instead of repeating one template', () => {
+  const allTypes = new Set();
+  for (const lesson of wordLessons) {
+    const types = new Set(lesson.blocks.map((block) => block.type));
+    types.forEach((type) => allTypes.add(type));
+    assert.ok(types.size >= 3, `${lesson.submoduleSlug} should use at least three block types`);
+  }
+  assert.ok(allTypes.size >= 7);
+});
+
+test('refresh signatures cover every lesson and only the original import blocks', () => {
+  assert.deepEqual(Object.keys(wordContentLegacyTitles).sort(), wordLessons
+    .map((lesson) => lesson.submoduleSlug).sort());
+  for (const lesson of wordLessons) {
+    assert.ok(wordContentLegacyTitles[lesson.submoduleSlug].length >= 2);
+  }
 });

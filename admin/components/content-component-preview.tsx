@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import type { ComponentType, ContentComponent, Module, Submodule } from '@tributo-educa/contracts';
 import { useEffect, useRef } from 'react';
 import { contentFields } from '../lib/content-fields';
@@ -38,7 +40,7 @@ export function MobileLessonPreview({
       <div className="mobile-preview-label"><span className="preview-live-dot" /> VISTA PREVIA EN VIVO</div>
       <div className="preview-phone">
         <div className="preview-statusbar"><span>9:41</span><span>● ● ● ▰</span></div>
-        <div className="preview-topline"><span className="preview-brand">TE</span><span>Tributo Educa Perú</span><span className="preview-avatar">C</span></div>
+        <div className="preview-topline"><Image className="preview-brand" src="/tributo-educa-logo.png" alt="" width={30} height={30} /><span>Tributo Educa Perú</span><span className="preview-avatar">C</span></div>
         <div className="preview-screen" ref={screenRef}>
           <div className="preview-notice"><span aria-hidden="true">ⓘ</span><span>Contenido educativo. No reemplaza asesoría tributaria, legal o contable profesional.</span></div>
           <p className="preview-eyebrow">{module?.title || 'MÓDULO EDUCATIVO'}</p>

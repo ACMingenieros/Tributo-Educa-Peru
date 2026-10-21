@@ -15,6 +15,7 @@
 .preview-statusbar{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#fff;font-size:9px;font-weight:800;color:#23364d}
 .preview-topline{height:49px;display:flex;align-items:center;gap:8px;padding:0 13px;border-bottom:1px solid #e7edf3;background:#fff;font-size:12px;font-weight:800;color:#12233b}
 .preview-brand{width:30px;height:30px;display:grid;place-items:center;background:#e4f4ec;color:#08744e;border-radius:8px;font-size:10px}
+.preview-brand{object-fit:contain;padding:3px;background:#f1f5ff}
 .preview-avatar{margin-left:auto;width:25px;height:25px;display:grid;place-items:center;border-radius:50%;background:#11243c;color:#fff;font-size:10px}
 .preview-screen{max-height:min(63vh,610px);overflow:auto;padding:12px 12px 4px;background:#f5f7fc;scrollbar-width:thin}
 .preview-notice{display:flex;gap:7px;margin:0 0 13px;padding:9px 10px;border-radius:9px;background:#eaf1ff;color:#425e81;font-size:9px;line-height:1.4}

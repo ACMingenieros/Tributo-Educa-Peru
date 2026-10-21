@@ -24,7 +24,7 @@ import {
 } from 'firebase/firestore';
 
 import { initialCurriculum, slugify } from './curriculum';
-import { wordLessons } from './word-content';
+import { wordContentLegacyTitles, wordLessons } from './word-content';
 
 type ModuleInput = Pick<Module, 'title' | 'slug' | 'description' | 'order' | 'isVisible'>;
 type SubmoduleInput = Pick<Submodule, 'title' | 'slug' | 'description' | 'order' | 'isVisible'>;
@@ -509,6 +509,91 @@ export async function saveWordContentDrafts(db: Firestore, actorId: string) {
   }
   await batch.commit();
   return { created, skipped };
+}
+
+export async function refreshWordContent(db: Firestore, actorId: string) {
+  const moduleSnapshots = await getDocs(collection(db, 'modules'));
+  const modulesBySlug = new Map(moduleSnapshots.docs.map((item) => [item.data().slug, item]));
+  const submodulesByModule = new Map(await Promise.all(
+    [...modulesBySlug.values()].map(async (module) => [
+      module.id,
+      await getDocs(collection(db, 'modules', module.id, 'submodules')),
+    ] as const),
+  ));
+
+  const locations = wordLessons.map((lesson) => {
+    const module = modulesBySlug.get(lesson.moduleSlug);
+    if (!module) throw new Error(`Falta el módulo «${lesson.moduleSlug}». No se modificó ningún contenido.`);
+    const submodules = submodulesByModule.get(module.id);
+    const submodule = submodules?.docs.find((item) => item.data().slug === lesson.submoduleSlug);
+    if (!submodule) throw new Error(`Falta el tema «${lesson.submoduleSlug}». No se modificó ningún contenido.`);
+    return { lesson, moduleId: module.id, submodule };
+  });
+
+  const prepared = await Promise.all(locations.map(async (location) => {
+    const components = await getDocs(query(
+      collection(db, 'modules', location.moduleId, 'submodules', location.submodule.id, 'components'),
+      orderBy('order'),
+    ));
+    const legacyTitles = wordContentLegacyTitles[location.lesson.submoduleSlug];
+    if (!legacyTitles) throw new Error(`No hay una firma segura para «${location.lesson.submoduleSlug}».`);
+    if (!components.empty && (
+      components.size !== legacyTitles.length ||
+      components.docs.some((item, index) => item.data().title !== legacyTitles[index])
+    )) {
+      throw new Error(
+        `El contenido de «${location.lesson.submoduleSlug}» fue editado o ampliado. ` +
+        'Se detuvo la actualización para conservar los cambios existentes.',
+      );
+    }
+    return { ...location, components: components.docs };
+  }));
+
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  let updated = 0;
+  let created = 0;
+  for (const { lesson, moduleId, submodule, components } of prepared) {
+    lesson.blocks.forEach((block, order) => {
+      const fields = {
+        type: block.type,
+        title: block.title,
+        data: block.data,
+        order,
+        updatedBy: actorId,
+        updatedAt: now,
+        serverUpdatedAt: serverTimestamp(),
+      };
+      if (order < components.length) {
+        batch.update(components[order].ref, fields);
+        updated += 1;
+        return;
+      }
+
+      const reference = doc(collection(
+        db,
+        'modules',
+        moduleId,
+        'submodules',
+        submodule.id,
+        'components',
+      ));
+      const published = submodule.data().status === 'published';
+      batch.set(reference, {
+        ...fields,
+        moduleId,
+        submoduleId: submodule.id,
+        status: published ? 'published' : 'draft',
+        isVisible: submodule.data().isVisible !== false,
+        createdBy: actorId,
+        createdAt: now,
+        publishedAt: published ? submodule.data().publishedAt ?? now : null,
+      });
+      created += 1;
+    });
+  }
+  await batch.commit();
+  return { updated, created, lessons: prepared.length };
 }
 
 export async function reorderSubmodules(

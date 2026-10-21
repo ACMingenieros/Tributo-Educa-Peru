@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -43,6 +45,7 @@ import {
   prepareSubmoduleDeletion,
   reorderComponents,
   reorderSubmodules,
+  refreshWordContent,
   saveInitialCurriculum,
   saveWordContentDrafts,
   updateComponent,
@@ -157,7 +160,7 @@ export function AdminConsole() {
       <main className="demo-login-page">
         <section className="login-story" aria-label="Presentación de Tributo Educa">
           <div className="demo-brand demo-brand-light">
-            <span className="demo-brand-mark" aria-hidden="true">TE</span>
+            <Image className="demo-brand-mark" src="/tributo-educa-logo.png" alt="" width={42} height={42} priority />
             <span>Tributo Educa<small>PERÚ · PANEL ADMINISTRATIVO</small></span>
           </div>
           <div className="login-story-copy">
@@ -355,6 +358,20 @@ function ContentWorkspace({
       if (moduleId && submoduleId) setComponents(await listComponents(db, moduleId, submoduleId, role));
       return `${result.created} bloques creados como borrador; ${result.skipped} lecciones con contenido se conservaron.`;
     }, 'Contenido inicial creado como borrador.');
+  }
+
+  async function handleRefreshWordContent() {
+    if (role !== 'admin' || !await confirmAction(
+      'Actualizar contenido educativo',
+      'Se actualizarán los bloques de las 15 lecciones del temario en Firebase. Se conservarán su estado publicado y sus identificadores; no se borrarán bloques. Si algún tema fue editado o ampliado manualmente, la operación se detendrá para protegerlo.',
+    )) return;
+    await runAction(async () => {
+      const result = await refreshWordContent(db, user.uid);
+      if (moduleId && submoduleId) {
+        setComponents(await listComponents(db, moduleId, submoduleId, role));
+      }
+      return `${result.lessons} lecciones revisadas: ${result.updated} bloques actualizados y ${result.created} agregados.`;
+    }, 'Contenido educativo actualizado.');
   }
 
   async function handleSaveModule(input: {
@@ -565,10 +582,16 @@ function ContentWorkspace({
             </div>
             <div className="heading-actions">
               {role === 'admin' && modules.length > 0 && (
-                <button className="button button-secondary" onClick={handleSeedWordContent} disabled={saving} aria-busy={saving}>
-                  {saving && <span className="button-spinner" aria-hidden="true" />}
-                  Cargar borradores del temario
-                </button>
+                <>
+                  <button className="button button-secondary" onClick={handleSeedWordContent} disabled={saving} aria-busy={saving}>
+                    {saving && <span className="button-spinner" aria-hidden="true" />}
+                    Cargar borradores del temario
+                  </button>
+                  <button className="button button-secondary" onClick={handleRefreshWordContent} disabled={saving} aria-busy={saving}>
+                    {saving && <span className="button-spinner" aria-hidden="true" />}
+                    Actualizar 15 lecciones
+                  </button>
+                </>
               )}
               <button className="button button-secondary" onClick={() => setPreviewOpen(true)} disabled={!selectedSubmodule}>
                 Vista previa
@@ -728,7 +751,7 @@ function ContentWorkspace({
 function BrandMark({ inverse = false }: { inverse?: boolean }) {
   return (
     <div className={`brand-mark ${inverse ? 'inverse' : ''}`}>
-      <span className="brand-symbol" aria-hidden="true">TE</span>
+      <Image className="brand-symbol" src="/tributo-educa-logo.png" alt="" width={38} height={38} />
       <span className="brand-name">Tributo Educa<small>Perú · Administración</small></span>
     </div>
   );
