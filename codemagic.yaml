@@ -1,0 +1,35 @@
+workflows:
+  android-release:
+    name: Tributo Educa Perú - Android APK
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+    working_directory: mobile/tributo_educa
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Build Android APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+
+  ios-unsigned:
+    name: Tributo Educa Perú - iOS (unsigned)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    working_directory: mobile/tributo_educa
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Install iOS CocoaPods dependencies
+        script: cd ios && pod install
+      - name: Build iOS without code signing
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - build/ios/iphoneos/*.app
+      - /tmp/xcodebuild_logs/*.log
