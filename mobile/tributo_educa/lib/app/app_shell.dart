@@ -1,11 +1,19 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/theme/app_theme.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/modules/presentation/modules_page.dart';
+import '../features/modules/data/modules_repository.dart';
+import '../features/tools/presentation/tools_page.dart';
+import '../features/saved/presentation/saved_page.dart';
+import '../features/profile/presentation/profile_page.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, required this.user});
+
+  final User user;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -14,6 +22,25 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
   String _moduleQuery = '';
+  late final ModulesRepository _repository;
+  final Set<String> _savedSubmoduleIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = ModulesRepository(FirebaseFirestore.instance);
+    _loadSaved();
+  }
+
+  Future<void> _loadSaved() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(
+      () => _savedSubmoduleIds.addAll(
+        preferences.getStringList('savedSubmoduleIds') ?? const [],
+      ),
+    );
+  }
 
   void _openModules([String query = '']) {
     setState(() {
@@ -22,27 +49,42 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
+  void _openSearch(String query) {
+    setState(() {
+      _selectedIndex = 1;
+      _moduleQuery = query;
+    });
+  }
+
+  void _toggleSaved(String id) {
+    setState(() {
+      if (!_savedSubmoduleIds.add(id)) _savedSubmoduleIds.remove(id);
+    });
+    SharedPreferences.getInstance().then(
+      (preferences) => preferences.setStringList(
+        'savedSubmoduleIds',
+        _savedSubmoduleIds.toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      HomePage(onBrowseModules: _openModules),
-      ModulesPage(initialQuery: _moduleQuery),
-      const _ComingSoonPage(
-        icon: Icons.auto_awesome_outlined,
-        title: 'Herramientas',
-        message: 'Los comparadores y simuladores se habilitarán en una siguiente etapa.',
+      HomePage(onSearch: _openSearch, onBrowseModules: _openModules),
+      ModulesPage(
+        initialQuery: _moduleQuery,
+        repository: _repository,
+        savedSubmoduleIds: _savedSubmoduleIds,
+        onToggleSaved: _toggleSaved,
       ),
-      const _ComingSoonPage(
-        icon: Icons.bookmark_border_rounded,
-        title: 'Guardados',
-        message:
-            'Aquí encontrarás las guías que guardes para consultarlas después.',
+      ToolsPage(onBrowseModules: _openModules),
+      SavedPage(
+        repository: _repository,
+        savedSubmoduleIds: _savedSubmoduleIds,
+        onToggleSaved: _toggleSaved,
       ),
-      const _ComingSoonPage(
-        icon: Icons.person_outline_rounded,
-        title: 'Perfil',
-        message: 'La configuración del perfil estará disponible más adelante.',
-      ),
+      ProfilePage(email: widget.user.email ?? '', onSignOut: _signOut),
     ];
 
     return Scaffold(
@@ -88,38 +130,10 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
-}
 
-class _ComingSoonPage extends StatelessWidget {
-  const _ComingSoonPage({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 42, color: AppColors.green),
-              const SizedBox(height: 16),
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _signOut() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove('rememberDevice');
+    await FirebaseAuth.instance.signOut();
   }
 }

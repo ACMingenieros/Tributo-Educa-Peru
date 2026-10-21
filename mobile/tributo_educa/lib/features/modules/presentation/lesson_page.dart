@@ -13,12 +13,18 @@ class LessonPage extends StatefulWidget {
     super.key,
     required this.module,
     required this.submodule,
+    required this.moduleSubmodules,
     required this.repository,
+    required this.savedSubmoduleIds,
+    required this.onToggleSaved,
   });
 
   final ModuleData module;
   final SubmoduleData submodule;
+  final List<SubmoduleData> moduleSubmodules;
   final ModulesRepository repository;
+  final Set<String> savedSubmoduleIds;
+  final ValueChanged<String> onToggleSaved;
 
   @override
   State<LessonPage> createState() => _LessonPageState();
@@ -26,11 +32,19 @@ class LessonPage extends StatefulWidget {
 
 class _LessonPageState extends State<LessonPage> {
   late Future<List<ContentComponentData>> _future;
+  late bool _isSaved;
 
   @override
   void initState() {
     super.initState();
+    _isSaved = widget.savedSubmoduleIds.contains(widget.submodule.id);
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant LessonPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _isSaved = widget.savedSubmoduleIds.contains(widget.submodule.id);
   }
 
   void _load() {
@@ -38,6 +52,33 @@ class _LessonPageState extends State<LessonPage> {
       widget.module.id,
       widget.submodule.id,
     );
+  }
+
+  void _openNext() {
+    final currentIndex = widget.moduleSubmodules.indexWhere(
+      (item) => item.id == widget.submodule.id,
+    );
+    if (currentIndex < 0 ||
+        currentIndex + 1 >= widget.moduleSubmodules.length) {
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => LessonPage(
+          module: widget.module,
+          submodule: widget.moduleSubmodules[currentIndex + 1],
+          moduleSubmodules: widget.moduleSubmodules,
+          repository: widget.repository,
+          savedSubmoduleIds: widget.savedSubmoduleIds,
+          onToggleSaved: widget.onToggleSaved,
+        ),
+      ),
+    );
+  }
+
+  void _toggleSaved() {
+    setState(() => _isSaved = !_isSaved);
+    widget.onToggleSaved(widget.submodule.id);
   }
 
   @override
@@ -97,6 +138,34 @@ class _LessonPageState extends State<LessonPage> {
               ],
               const SizedBox(height: 14),
               const _EducationNotice(),
+              Align(
+                alignment: Alignment.centerRight,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    color: _isSaved ? AppColors.greenLight : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: TextButton.icon(
+                    onPressed: _toggleSaved,
+                    style: TextButton.styleFrom(
+                      foregroundColor: _isSaved
+                          ? AppColors.green
+                          : AppColors.textSecondary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                    icon: Icon(
+                      _isSaved
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                    ),
+                    label: Text(_isSaved ? 'Guardado' : 'Guardar tema'),
+                  ),
+                ),
+              ),
               const SizedBox(height: 18),
               if (blocks.isEmpty)
                 const Card(
@@ -112,6 +181,30 @@ class _LessonPageState extends State<LessonPage> {
                   LessonContentBlock(block: block),
                   const SizedBox(height: 12),
                 ],
+              const SizedBox(height: 12),
+              if (widget.moduleSubmodules.indexWhere(
+                    (item) => item.id == widget.submodule.id,
+                  ) <
+                  widget.moduleSubmodules.length - 1)
+                SizedBox(
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: _openNext,
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                    label: const Text('Siguiente tema'),
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).popUntil(
+                      (route) => route.settings.name == _moduleTopicsRouteName,
+                    ),
+                    icon: const Icon(Icons.list_alt_rounded),
+                    label: const Text('Volver a los temas del módulo'),
+                  ),
+                ),
             ],
           );
         },
@@ -119,6 +212,8 @@ class _LessonPageState extends State<LessonPage> {
     );
   }
 }
+
+const _moduleTopicsRouteName = 'module-topics';
 
 class _EducationNotice extends StatelessWidget {
   const _EducationNotice();

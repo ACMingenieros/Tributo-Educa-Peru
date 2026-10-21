@@ -34,6 +34,10 @@ android {
 
     buildTypes {
         release {
+            // R8 currently breaks the SharedPreferences Pigeon API in release builds.
+            // Keep the release APK unminified until the plugin/toolchain incompatibility is resolved.
+            isMinifyEnabled = false
+            isShrinkResources = false
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")

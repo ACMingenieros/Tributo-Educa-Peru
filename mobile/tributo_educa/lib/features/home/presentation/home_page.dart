@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.onBrowseModules});
+  const HomePage({
+    super.key,
+    required this.onSearch,
+    required this.onBrowseModules,
+  });
 
+  final ValueChanged<String> onSearch;
   final ValueChanged<String> onBrowseModules;
 
   @override
@@ -14,11 +19,6 @@ class HomePage extends StatelessWidget {
         titleSpacing: 16,
         title: const _Brand(),
         actions: [
-          IconButton(
-            tooltip: 'Buscar módulos',
-            onPressed: () => onBrowseModules(''),
-            icon: const Icon(Icons.search_rounded),
-          ),
           const Padding(
             padding: EdgeInsets.only(right: 16),
             child: CircleAvatar(
@@ -38,7 +38,7 @@ class HomePage extends StatelessWidget {
         children: [
           const _EducationalNotice(),
           const SizedBox(height: 18),
-          _WelcomeCard(onBrowseModules: onBrowseModules),
+          _WelcomeCard(onSearch: onSearch),
           const SizedBox(height: 22),
           _SectionHeading(
             title: 'Explora los módulos',
@@ -68,13 +68,13 @@ class _Brand extends StatelessWidget {
           width: 34,
           height: 34,
           decoration: BoxDecoration(
-            color: AppColors.greenLight,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(
-            Icons.account_balance_outlined,
-            color: AppColors.green,
-            size: 20,
+          padding: const EdgeInsets.all(2),
+          child: Image.asset(
+            'assets/images/tributo_educa_logo.png',
+            semanticLabel: 'Logo de Tributo Educa Perú',
           ),
         ),
         const SizedBox(width: 9),
@@ -138,9 +138,9 @@ class _EducationalNotice extends StatelessWidget {
 }
 
 class _WelcomeCard extends StatelessWidget {
-  const _WelcomeCard({required this.onBrowseModules});
+  const _WelcomeCard({required this.onSearch});
 
-  final ValueChanged<String> onBrowseModules;
+  final ValueChanged<String> onSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +182,7 @@ class _WelcomeCard extends StatelessWidget {
               Expanded(
                 child: TextField(
                   textInputAction: TextInputAction.search,
-                  onSubmitted: onBrowseModules,
+                  onSubmitted: onSearch,
                   decoration: InputDecoration(
                     hintText: '¿Qué necesitas resolver?',
                     hintStyle: const TextStyle(
@@ -207,7 +207,7 @@ class _WelcomeCard extends StatelessWidget {
               SizedBox(
                 height: 48,
                 child: FilledButton(
-                  onPressed: () => onBrowseModules(''),
+                  onPressed: () => onSearch(''),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.green,
                     foregroundColor: Colors.white,

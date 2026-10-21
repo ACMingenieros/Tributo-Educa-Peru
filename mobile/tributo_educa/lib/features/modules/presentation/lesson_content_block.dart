@@ -241,29 +241,86 @@ class _ComparisonTable extends StatelessWidget {
     if (columns.isEmpty) {
       return const Text('Agrega columnas para mostrar la comparación.');
     }
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: const WidgetStatePropertyAll(AppColors.background),
-        columnSpacing: 18,
-        columns: [
-          for (final column in columns) DataColumn(label: Text(column)),
-        ],
-        rows: [
-          for (final row in rows)
-            DataRow(
-              cells: [
-                for (var index = 0; index < columns.length; index++)
-                  DataCell(
-                    SizedBox(
-                      width: 155,
-                      child: Text(index < row.length ? row[index] : ''),
+    final tableRows = <List<String>>[
+      columns,
+      for (final row in rows)
+        List<String>.generate(
+          columns.length,
+          (index) => index < row.length ? row[index] : '',
+        ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minimumColumnWidth = columns.length <= 2 ? 150.0 : 132.0;
+        final tableWidth =
+            (constraints.maxWidth / columns.length).clamp(
+              minimumColumnWidth,
+              240.0,
+            ) *
+            columns.length;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableWidth,
+            child: Column(
+              children: [
+                for (var rowIndex = 0; rowIndex < tableRows.length; rowIndex++)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final cell in tableRows[rowIndex])
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: rowIndex == 0
+                                    ? AppColors.background
+                                    : AppColors.surface,
+                                border: Border(
+                                  right: const BorderSide(
+                                    color: AppColors.border,
+                                  ),
+                                  bottom: const BorderSide(
+                                    color: AppColors.border,
+                                  ),
+                                  top: rowIndex == 0
+                                      ? const BorderSide(
+                                          color: AppColors.border,
+                                        )
+                                      : BorderSide.none,
+                                  left: const BorderSide(
+                                    color: AppColors.border,
+                                  ),
+                                ),
+                              ),
+                              child: Align(
+                                alignment: Alignment.topLeft,
+                                child: Text(
+                                  cell,
+                                  softWrap: true,
+                                  style: rowIndex == 0
+                                      ? Theme.of(context).textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            )
+                                      : Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
               ],
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

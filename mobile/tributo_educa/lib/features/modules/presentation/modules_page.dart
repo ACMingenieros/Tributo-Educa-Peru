@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -7,9 +6,18 @@ import '../data/modules_repository.dart';
 import 'lesson_page.dart';
 
 class ModulesPage extends StatefulWidget {
-  const ModulesPage({super.key, this.initialQuery = ''});
+  const ModulesPage({
+    super.key,
+    this.initialQuery = '',
+    required this.repository,
+    required this.savedSubmoduleIds,
+    required this.onToggleSaved,
+  });
 
   final String initialQuery;
+  final ModulesRepository repository;
+  final Set<String> savedSubmoduleIds;
+  final ValueChanged<String> onToggleSaved;
 
   @override
   State<ModulesPage> createState() => _ModulesPageState();
@@ -20,14 +28,19 @@ class _ModulesPageState extends State<ModulesPage> {
   late final ModulesRepository _repository;
   late String _query;
   late Future<List<ModuleData>> _modulesFuture;
+  late Future<List<ModuleSearchResult>> _searchFuture;
 
   @override
   void initState() {
     super.initState();
-    _repository = ModulesRepository(FirebaseFirestore.instance);
+    _repository = widget.repository;
     _modulesFuture = _repository.fetchModules();
     _query = widget.initialQuery;
     _searchController = TextEditingController(text: _query);
+    _searchFuture = _modulesFuture.then(
+      (modules) =>
+          modules.map((module) => ModuleSearchResult(module: module)).toList(),
+    );
   }
 
   @override
@@ -36,6 +49,7 @@ class _ModulesPageState extends State<ModulesPage> {
     if (oldWidget.initialQuery != widget.initialQuery) {
       _query = widget.initialQuery;
       _searchController.text = _query;
+      _startSearch(_query);
     }
   }
 
@@ -45,7 +59,33 @@ class _ModulesPageState extends State<ModulesPage> {
     super.dispose();
   }
 
-  void _retry() => setState(() => _modulesFuture = _repository.fetchModules());
+  void _retry() {
+    setState(() {
+      _modulesFuture = _repository.fetchModules();
+      _startSearch(_query);
+    });
+  }
+
+  void _startSearch(String value) {
+    _searchFuture = value.trim().isEmpty
+        ? _modulesFuture.then(
+            (modules) => modules
+                .map((module) => ModuleSearchResult(module: module))
+                .toList(),
+          )
+        : _repository.search(value);
+  }
+
+  void _updateQuery(String value) {
+    setState(() => _query = value);
+  }
+
+  void _submitSearch(String value) {
+    setState(() {
+      _query = value;
+      _startSearch(value);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,35 +96,35 @@ class _ModulesPageState extends State<ModulesPage> {
         children: [
           TextField(
             controller: _searchController,
-            onChanged: (value) => setState(() => _query = value),
+            onChanged: _updateQuery,
+            onSubmitted: _submitSearch,
             decoration: InputDecoration(
               hintText: 'Buscar un tema',
               prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: _query.isEmpty
+              suffixIcon: _query.trim().isEmpty
                   ? null
                   : IconButton(
-                      tooltip: 'Limpiar búsqueda',
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _query = '');
-                      },
-                      icon: const Icon(Icons.close_rounded),
+                      tooltip: 'Buscar',
+                      onPressed: () => _submitSearch(_searchController.text),
+                      icon: const Icon(Icons.arrow_forward_rounded),
                     ),
             ),
           ),
           const SizedBox(height: 18),
-          Text(
-            'Aprende sobre tu negocio',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Contenido claro y organizado por temas.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 14),
-          FutureBuilder<List<ModuleData>>(
-            future: _modulesFuture,
+          if (_query.isEmpty)
+            Text(
+              'Aprende sobre tu negocio',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          if (_query.isEmpty) const SizedBox(height: 4),
+          if (_query.isEmpty)
+            Text(
+              'Contenido claro y organizado por temas.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          if (_query.isEmpty) const SizedBox(height: 14),
+          FutureBuilder<List<ModuleSearchResult>>(
+            future: _searchFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const _LoadingModules();
@@ -93,32 +133,17 @@ class _ModulesPageState extends State<ModulesPage> {
                 return _LoadError(onRetry: _retry);
               }
 
-              final query = _query.trim().toLowerCase();
-              final modules = (snapshot.data ?? const <ModuleData>[])
-                  .where(
-                    (module) =>
-                        module.title.toLowerCase().contains(query) ||
-                        module.description.toLowerCase().contains(query),
-                  )
-                  .toList();
-              if (modules.isEmpty) {
-                return _EmptyModules(hasSearch: query.isNotEmpty);
+              final results = snapshot.data ?? const <ModuleSearchResult>[];
+              if (results.isEmpty) {
+                return _EmptyModules(hasSearch: _query.trim().isNotEmpty);
               }
 
               return Column(
                 children: [
-                  for (var index = 0; index < modules.length; index++) ...[
-                    _ModuleTile(
-                      module: modules[index],
-                      number: index + 1,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) => _ModuleDetailPage(
-                            module: modules[index],
-                            repository: _repository,
-                          ),
-                        ),
-                      ),
+                  for (final result in results) ...[
+                    _SearchResultTile(
+                      result: result,
+                      onTap: () => _openResult(result),
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -130,53 +155,110 @@ class _ModulesPageState extends State<ModulesPage> {
       ),
     );
   }
-}
 
-class _ModuleTile extends StatelessWidget {
-  const _ModuleTile({
-    required this.module,
-    required this.number,
-    required this.onTap,
-  });
-
-  final ModuleData module;
-  final int number;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        leading: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: AppColors.info,
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: Icon(module.icon, color: AppColors.blue),
-        ),
-        title: Text(module.title.startsWith('Módulo ') ? module.title : 'Módulo $number: ${module.title}'),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(module.description),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: AppColors.muted,
-        ),
-        onTap: onTap,
+  void _openResult(ModuleSearchResult result) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'module-topics'),
+        builder: (context) {
+          if (result.submodule == null) {
+            return _ModuleDetailPage(
+              module: result.module,
+              repository: _repository,
+              savedSubmoduleIds: widget.savedSubmoduleIds,
+              onToggleSaved: widget.onToggleSaved,
+            );
+          }
+          return _OpenLessonLoader(
+            module: result.module,
+            submodule: result.submodule!,
+            repository: _repository,
+            savedSubmoduleIds: widget.savedSubmoduleIds,
+            onToggleSaved: widget.onToggleSaved,
+          );
+        },
       ),
     );
   }
 }
 
+class _SearchResultTile extends StatelessWidget {
+  const _SearchResultTile({required this.result, required this.onTap});
+  final ModuleSearchResult result;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      leading: CircleAvatar(
+        backgroundColor: AppColors.info,
+        child: Icon(
+          result.submodule == null
+              ? result.module.icon
+              : Icons.menu_book_outlined,
+          color: AppColors.blue,
+        ),
+      ),
+      title: Text(result.submodule?.title ?? result.module.title),
+      subtitle: Text(
+        result.submodule == null
+            ? 'Módulo · ${result.module.description}'
+            : result.module.title,
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    ),
+  );
+}
+
+class _OpenLessonLoader extends StatelessWidget {
+  const _OpenLessonLoader({
+    required this.module,
+    required this.submodule,
+    required this.repository,
+    required this.savedSubmoduleIds,
+    required this.onToggleSaved,
+  });
+  final ModuleData module;
+  final SubmoduleData submodule;
+  final ModulesRepository repository;
+  final Set<String> savedSubmoduleIds;
+  final ValueChanged<String> onToggleSaved;
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<SubmoduleData>>(
+    future: repository.fetchSubmodules(module.id),
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return const Scaffold(
+          body: Center(child: Text('No se pudo cargar el tema.')),
+        );
+      }
+      if (!snapshot.hasData) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      return LessonPage(
+        module: module,
+        submodule: submodule,
+        moduleSubmodules: snapshot.data!,
+        repository: repository,
+        savedSubmoduleIds: savedSubmoduleIds,
+        onToggleSaved: onToggleSaved,
+      );
+    },
+  );
+}
+
 class _ModuleDetailPage extends StatefulWidget {
-  const _ModuleDetailPage({required this.module, required this.repository});
+  const _ModuleDetailPage({
+    required this.module,
+    required this.repository,
+    required this.savedSubmoduleIds,
+    required this.onToggleSaved,
+  });
 
   final ModuleData module;
   final ModulesRepository repository;
+  final Set<String> savedSubmoduleIds;
+  final ValueChanged<String> onToggleSaved;
 
   @override
   State<_ModuleDetailPage> createState() => _ModuleDetailPageState();
@@ -280,10 +362,16 @@ class _ModuleDetailPageState extends State<_ModuleDetailPage> {
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
+                            settings: const RouteSettings(
+                              name: 'module-topics',
+                            ),
                             builder: (context) => LessonPage(
                               module: module,
                               submodule: submodules[index],
+                              moduleSubmodules: submodules,
                               repository: widget.repository,
+                              savedSubmoduleIds: widget.savedSubmoduleIds,
+                              onToggleSaved: widget.onToggleSaved,
                             ),
                           ),
                         ),
